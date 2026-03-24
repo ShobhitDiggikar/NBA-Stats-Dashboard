@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NBA Team Analytics Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f4f3ef;
+    --bg-info: #e6f1fb;
+    --text-primary: #1a1a18;
+    --text-secondary: #73726c;
+    --text-info: #185fa5;
+    --border: rgba(0,0,0,0.1);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-primary: #1e1e1c;
+      --bg-secondary: #2a2a27;
+      --bg-info: #0c2e4a;
+      --text-primary: #e8e6dc;
+      --text-secondary: #9c9a92;
+      --text-info: #85b7eb;
+      --border: rgba(255,255,255,0.1);
+    }
+  }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 32px 20px 48px;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .dash-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .dash-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .dash-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+  .pill {
+    background: var(--bg-info);
+    color: var(--text-info);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-left: auto;
+  }
+
+  .team-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 22px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .team-selector label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .team-selector select {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Barlow', sans-serif;
+    cursor: pointer;
+  }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 600px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .kpi-card {
+    background: var(--bg-primary);
+    border-radius: var(--radius-md);
+    padding: 16px 16px 14px;
+    position: relative;
+    overflow: hidden;
+    border: 0.5px solid var(--border);
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .kpi-card.blue::before  { background: #378ADD; }
+  .kpi-card.green::before { background: #639922; }
+  .kpi-card.amber::before { background: #BA7517; }
+  .kpi-card.coral::before { background: #D85A30; }
+
+  .kpi-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 8px;
+  }
+  .kpi-value {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .kpi-rank {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 640px) { .charts-grid { grid-template-columns: 1fr; } }
+
+  .chart-card {
+    background: var(--bg-primary);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px 16px 14px;
+  }
+  .chart-card.full-width { grid-column: 1 / -1; }
+
+  .chart-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 14px;
+  }
+  .chart-wrap { position: relative; width: 100%; }
+
+  .footer {
+    text-align: center;
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="dash-header">
+    <div class="dash-title">NBA Team Analytics</div>
+    <div class="dash-subtitle">Advanced stats · 1997–2025</div>
+    <div class="pill">2024–25 Season</div>
+  </div>
+
+  <div class="team-selector">
+    <label>Focus team</label>
+    <select id="teamSelect" onchange="updateDash()"></select>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card blue"><div class="kpi-label">Net Rating</div><div class="kpi-value" id="kpi-net">–</div><div class="kpi-rank" id="kpi-net-rank">–</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Win %</div><div class="kpi-value" id="kpi-win">–</div><div class="kpi-rank" id="kpi-win-rank">–</div></div>
+    <div class="kpi-card amber"><div class="kpi-label">Off Rating</div><div class="kpi-value" id="kpi-off">–</div><div class="kpi-rank" id="kpi-off-rank">–</div></div>
+    <div class="kpi-card coral"><div class="kpi-label">Def Rating</div><div class="kpi-value" id="kpi-def">–</div><div class="kpi-rank" id="kpi-def-rank">–</div></div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title" id="trendTitle">PHX · Net Rtg Trend</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Off vs Def Rating · All Teams 2025</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="scatterChart"></canvas></div>
+    </div>
+    <div class="chart-card full-width">
+      <div class="chart-title">Net Rating Ranking · 2024–25 Regular Season</div>
+      <div class="chart-wrap" id="barWrap"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="footer">Built with NBA Advanced Stats dataset &nbsp;·&nbsp; Shobhit &nbsp;·&nbsp; 2025</div>
+
+</div>
+<script>
+const teamStats2025 = {
+  OKC:{OFFRTG:118.59,DEFRTG:106.01,NETRTG:12.58,win_pct:82.9,wins:68,games:82},
+  BOS:{OFFRTG:120.23,DEFRTG:110.78,NETRTG:9.45,win_pct:74.4,wins:61,games:82},
+  CLE:{OFFRTG:116.85,DEFRTG:107.7,NETRTG:9.15,win_pct:78.0,wins:64,games:82},
+  MIN:{OFFRTG:114.2,DEFRTG:109.14,NETRTG:5.06,win_pct:59.8,wins:49,games:82},
+  LAC:{OFFRTG:115.1,DEFRTG:110.16,NETRTG:4.94,win_pct:61.0,wins:50,games:82},
+  MEM:{OFFRTG:115.3,DEFRTG:110.59,NETRTG:4.71,win_pct:58.5,wins:48,games:82},
+  HOU:{OFFRTG:114.6,DEFRTG:110.2,NETRTG:4.4,win_pct:63.4,wins:52,games:82},
+  NYK:{OFFRTG:114.9,DEFRTG:110.96,NETRTG:3.94,win_pct:62.2,wins:51,games:82},
+  DEN:{OFFRTG:114.5,DEFRTG:110.75,NETRTG:3.75,win_pct:61.0,wins:50,games:82},
+  GSW:{OFFRTG:114.2,DEFRTG:111.09,NETRTG:3.11,win_pct:58.5,wins:48,games:82},
+  MIL:{OFFRTG:113.9,DEFRTG:111.51,NETRTG:2.39,win_pct:58.5,wins:48,games:82},
+  IND:{OFFRTG:116.5,DEFRTG:114.31,NETRTG:2.19,win_pct:61.0,wins:50,games:82},
+  DET:{OFFRTG:113.7,DEFRTG:111.63,NETRTG:2.07,win_pct:53.7,wins:44,games:82},
+  LAL:{OFFRTG:114.1,DEFRTG:112.89,NETRTG:1.21,win_pct:61.0,wins:50,games:82},
+  SAC:{OFFRTG:114.8,DEFRTG:114.18,NETRTG:0.62,win_pct:48.8,wins:40,games:82},
+  MIA:{OFFRTG:112.6,DEFRTG:112.17,NETRTG:0.43,win_pct:45.1,wins:37,games:82},
+  ORL:{OFFRTG:111.9,DEFRTG:112.0,NETRTG:-0.1,win_pct:50.0,wins:41,games:82},
+  ATL:{OFFRTG:113.5,DEFRTG:114.49,NETRTG:-0.99,win_pct:48.8,wins:40,games:82},
+  DAL:{OFFRTG:113.2,DEFRTG:114.48,NETRTG:-1.28,win_pct:47.6,wins:39,games:82},
+  CHI:{OFFRTG:112.8,DEFRTG:114.43,NETRTG:-1.63,win_pct:47.6,wins:39,games:82},
+  POR:{OFFRTG:113.0,DEFRTG:115.57,NETRTG:-2.57,win_pct:43.9,wins:36,games:82},
+  SAS:{OFFRTG:112.4,DEFRTG:115.18,NETRTG:-2.78,win_pct:41.5,wins:34,games:82},
+  PHX:{OFFRTG:114.76,DEFRTG:117.7,NETRTG:-2.93,win_pct:43.9,wins:36,games:82},
+  TOR:{OFFRTG:111.5,DEFRTG:115.63,NETRTG:-4.13,win_pct:36.6,wins:30,games:82},
+  PHI:{OFFRTG:111.1,DEFRTG:117.45,NETRTG:-6.35,win_pct:29.3,wins:24,games:82},
+  BKN:{OFFRTG:110.2,DEFRTG:117.36,NETRTG:-7.16,win_pct:31.7,wins:26,games:82},
+  CHA:{OFFRTG:109.8,DEFRTG:118.84,NETRTG:-9.04,win_pct:23.2,wins:19,games:82},
+  UTA:{OFFRTG:109.2,DEFRTG:118.5,NETRTG:-9.3,win_pct:20.7,wins:17,games:82},
+  NOP:{OFFRTG:109.0,DEFRTG:118.53,NETRTG:-9.53,win_pct:25.6,wins:21,games:82},
+  WAS:{OFFRTG:108.5,DEFRTG:120.71,NETRTG:-12.21,win_pct:22.0,wins:18,games:82},
+};
+
+const phxTrend = {
+  '2018':{NETRTG:-8.84,OFFRTG:102.91,DEFRTG:111.75,wins:21},
+  '2019':{NETRTG:-8.95,OFFRTG:105.25,DEFRTG:114.19,wins:19},
+  '2020':{NETRTG:0.39,OFFRTG:111.39,DEFRTG:111.0,wins:34},
+  '2021':{NETRTG:5.83,OFFRTG:116.42,DEFRTG:110.59,wins:51},
+  '2022':{NETRTG:7.45,OFFRTG:114.32,DEFRTG:106.87,wins:64},
+  '2023':{NETRTG:2.19,OFFRTG:114.5,DEFRTG:112.31,wins:45},
+  '2024':{NETRTG:3.15,OFFRTG:117.03,DEFRTG:113.89,wins:49},
+  '2025':{NETRTG:-2.93,OFFRTG:114.76,DEFRTG:117.7,wins:36},
+};
+
+const sel = document.getElementById('teamSelect');
+Object.keys(teamStats2025).sort().forEach(t => {
+  const o = document.createElement('option');
+  o.value = t; o.textContent = t;
+  if (t === 'PHX') o.selected = true;
+  sel.appendChild(o);
+});
+
+const sortedAsc = Object.entries(teamStats2025).sort((a,b) => a[1].NETRTG - b[1].NETRTG);
+
+function getRank(team, key, asc=false) {
+  const s = Object.entries(teamStats2025).sort((a,b) => asc ? a[1][key]-b[1][key] : b[1][key]-a[1][key]);
+  return s.findIndex(([t]) => t === team) + 1;
+}
+
+let trendChart, scatterChart, barChart;
+
+function updateDash() {
+  const team = sel.value;
+  const d = teamStats2025[team];
+
+  document.getElementById('kpi-net').textContent = (d.NETRTG > 0 ? '+' : '') + d.NETRTG.toFixed(1);
+  document.getElementById('kpi-net-rank').textContent = `#${getRank(team,'NETRTG')} of 30 teams`;
+  document.getElementById('kpi-win').textContent = d.win_pct.toFixed(1) + '%';
+  document.getElementById('kpi-win-rank').textContent = `${d.wins}–${d.games - d.wins} record`;
+  document.getElementById('kpi-off').textContent = d.OFFRTG.toFixed(1);
+  document.getElementById('kpi-off-rank').textContent = `#${getRank(team,'OFFRTG')} offensive`;
+  document.getElementById('kpi-def').textContent = d.DEFRTG.toFixed(1);
+  document.getElementById('kpi-def-rank').textContent = `#${getRank(team,'DEFRTG',true)} defensive`;
+  document.getElementById('trendTitle').textContent = `${team} · Net Rtg Trend`;
+
+  const seasons = Object.keys(phxTrend);
+  const netVals = seasons.map(s => phxTrend[s].NETRTG);
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: seasons,
+      datasets: [{
+        data: netVals,
+        borderColor: '#378ADD',
+        backgroundColor: 'rgba(55,138,221,0.1)',
+        borderWidth: 2.5,
+        pointRadius: 5,
+        pointBackgroundColor: netVals.map(v => v >= 0 ? '#378ADD' : '#E24B4A'),
+        tension: 0.35,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font:{size:10}, color:'#888' }, grid:{display:false} },
+        y: { ticks: { font:{size:10}, color:'#888', callback: v => (v>0?'+':'')+v }, grid:{color:'rgba(128,128,128,0.1)'} }
+      }
+    }
+  });
+
+  const scatterData = Object.entries(teamStats2025).map(([t,s]) => ({
+    x: parseFloat(s.OFFRTG.toFixed(2)),
+    y: parseFloat(s.DEFRTG.toFixed(2)),
+    label: t, isSelected: t === team
+  }));
+  if (scatterChart) scatterChart.destroy();
+  scatterChart = new Chart(document.getElementById('scatterChart'), {
+    type: 'scatter',
+    data: {
+      datasets: [
+        { label: 'Teams', data: scatterData.filter(d=>!d.isSelected), backgroundColor:'rgba(136,135,128,0.45)', pointRadius:4 },
+        { label: team, data: scatterData.filter(d=>d.isSelected), backgroundColor:'#378ADD', pointRadius:8 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend:{display:false},
+        tooltip:{ callbacks:{ label:(ctx)=>{ const f=scatterData.find(d=>d.x===ctx.parsed.x&&d.y===ctx.parsed.y); return f?`${f.label}: OFF ${ctx.parsed.x} / DEF ${ctx.parsed.y}`:''; } } }
+      },
+      scales: {
+        x: { title:{display:true,text:'Off Rtg',font:{size:10},color:'#888'}, ticks:{font:{size:9},color:'#888'}, grid:{color:'rgba(128,128,128,0.1)'} },
+        y: { title:{display:true,text:'Def Rtg',font:{size:10},color:'#888'}, ticks:{font:{size:9},color:'#888'}, grid:{color:'rgba(128,128,128,0.1)'} }
+      }
+    }
+  });
+}
+
+function buildBarChart() {
+  const labels = sortedAsc.map(([t])=>t);
+  const values = sortedAsc.map(([,d])=>parseFloat(d.NETRTG.toFixed(2)));
+  const colors = labels.map((t,i) => t==='PHX' ? '#378ADD' : values[i]>=0 ? '#639922' : '#E24B4A');
+  document.getElementById('barWrap').style.height = (labels.length * 26 + 70) + 'px';
+  if (barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('barChart'), {
+    type:'bar',
+    data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderRadius:3, barThickness:16 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{ ticks:{font:{size:10},color:'#888',callback:v=>(v>0?'+':'')+v}, grid:{color:'rgba(128,128,128,0.1)'}, title:{display:true,text:'Net Rating',font:{size:10},color:'#888'} },
+        y:{ ticks:{font:{size:11},color:'#888',autoSkip:false}, grid:{display:false} }
+      }
+    }
+  });
+}
+
+buildBarChart();
+updateDash();
+</script>
+</body>
+</html>
